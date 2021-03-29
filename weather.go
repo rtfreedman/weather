@@ -2,6 +2,7 @@ package weather
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -9,7 +10,7 @@ import (
 	"time"
 )
 
-var ApiKey = "809f761fd91b3990cdc45262b01aa174"
+var APIKey string
 var client *http.Client
 
 func init() {
@@ -37,13 +38,20 @@ type Weather struct {
 }
 
 func GetFromZip(zip int) (w Weather, err error) {
+	if APIKey == "" {
+		err = errors.New("set APIKey")
+		return
+	}
 	// get the weather from the cache if it's there
 	w, present, expired := cachedWeather.retrieve(zip)
 	if present && !expired {
 		return
 	}
 	// otherwise fetch the weather
-	err = w.fetch(zip)
+	if err = w.fetch(zip); err != nil {
+		return
+	}
+	cachedWeather.add(w)
 	return
 }
 
@@ -68,7 +76,7 @@ func (w *Weather) fetch(zip int) (err error) {
 	w.ZipCode = zip
 
 	// create the request to the api from the zip provided and the API Key
-	req, err := http.NewRequest("GET", fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%d&appid=%s", zip, ApiKey), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%d&appid=%s", zip, APIKey), nil)
 	if err != nil {
 		return
 	}
