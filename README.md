@@ -17,7 +17,7 @@ func main() {
 	weather.APIKey = os.Getenv("EXAMPLE_API_KEY")
 
 	// grab the weather based on the zip code we want
-	w, err := weather.GetFromZip(*zipCode)
+	w, err := weather.GetFromZip(zipCode)
 	if err != nil {
 		panic(err.Error())
 	}
