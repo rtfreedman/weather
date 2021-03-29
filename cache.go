@@ -10,7 +10,9 @@ type cache struct {
 	sync.RWMutex
 }
 
-var cachedWeather = cache{}
+var cachedWeather = cache{
+	weathers: map[int]Weather{},
+}
 
 // retrieve will retrieve weather from the cache if present
 func (c *cache) retrieve(zip int) (w Weather, present, expired bool) {
