@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -14,9 +15,11 @@ var APIKey string
 var client *http.Client
 
 // 60 calls per minute
-var rateLimiter = make(chan *time.Timer, 10)
+var rateLimiter = make(chan *time.Timer, 60)
 
-// 1M calls per month
+// 1M items per month
+var requestsSent *int64 = new(int64)
+var lastResetTime = time.Now()
 
 type apiResponse struct {
 	Main main `json:"main"`
@@ -46,7 +49,18 @@ func init() {
 	}
 }
 
+func checkMillion() bool {
+	if time.Now().Month() != lastResetTime.Month() {
+		requestsSent = new(int64)
+		lastResetTime = time.Now()
+	}
+	return atomic.AddInt64(requestsSent, 1) > 10
+}
+
 func (w *Weather) fetch(zip int) (err error) {
+	if checkMillion() {
+		return errors.New("monthly limit reached")
+	}
 	select {
 	case rateLimiter <- time.NewTimer(time.Minute):
 	default:
