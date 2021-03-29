@@ -54,7 +54,7 @@ func checkMillion() bool {
 		requestsSent = new(int64)
 		lastResetTime = time.Now()
 	}
-	return atomic.AddInt64(requestsSent, 1) > 10
+	return atomic.AddInt64(requestsSent, 1) > 1000000
 }
 
 func (w *Weather) fetch(zip int) (err error) {
@@ -89,7 +89,7 @@ func (w *Weather) fetch(zip int) (err error) {
 
 	// if we didn't get a 200 the body is likely different. Here we return the first 100 characters of the body.
 	if resp.StatusCode != 200 {
-		err = fmt.Errorf("Bad Status Code from API : %d; " + string(b)[:100] + "...")
+		err = fmt.Errorf("Bad Status Code from API : %d; " + string(b))
 		return
 	}
 
