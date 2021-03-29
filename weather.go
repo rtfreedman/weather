@@ -15,8 +15,8 @@ type Weather struct {
 	ZipCode     int
 }
 
-func GetFromZip(zip int) (w Weather, err error) {
-	if APIKey == "" {
+func (client *WeatherClient) GetFromZip(zip int) (w Weather, err error) {
+	if client.apiKey == "" {
 		err = errors.New("set APIKey")
 		return
 	}
@@ -26,7 +26,7 @@ func GetFromZip(zip int) (w Weather, err error) {
 		return
 	}
 	// otherwise fetch the weather
-	if err = w.fetch(zip); err != nil {
+	if w, err = client.fetch(zip); err != nil {
 		return
 	}
 	cachedWeather.add(w)

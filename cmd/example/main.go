@@ -12,11 +12,11 @@ import (
 var zipCode = flag.Int("zip", 20175, "supply zip code")
 
 func main() {
-	// set the api key
-	weather.APIKey = os.Getenv("EXAMPLE_API_KEY")
+	// create a client from our api key
+	client := weather.NewClient(os.Getenv("EXAMPLE_API_KEY"))
 
 	// grab the weather based on the zip code we want
-	w, err := weather.GetFromZip(*zipCode)
+	w, err := client.GetFromZip(*zipCode)
 	if err != nil {
 		panic(err.Error())
 	}

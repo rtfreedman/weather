@@ -11,15 +11,16 @@ import (
 	"time"
 )
 
-var APIKey string
-var client *http.Client
+var ErrRateLimitReached = errors.New("rate limit reached")
+var ErrMonthlyLimitReached = errors.New("monthly limit reached")
 
-// 60 calls per minute
-var rateLimiter = make(chan *time.Timer, 60)
-
-// 1M items per month
-var requestsSent *int64 = new(int64)
-var lastResetTime = time.Now()
+type WeatherClient struct {
+	rateLimiter   chan bool
+	requestsSent  *int64
+	lastResetTime time.Time
+	apiKey        string
+	http.Client
+}
 
 type apiResponse struct {
 	Main main `json:"main"`
@@ -35,44 +36,60 @@ type wind struct {
 	Speed float32 `json:"speed"`
 }
 
-func init() {
+// NewClient constructs a client for the api key provided
+func NewClient(apiKey string) *WeatherClient {
 	// initialize the client
 	dialer := net.Dialer{
 		Timeout: 10 * time.Second,
 	}
-	client = &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			Dial:                dialer.Dial,
-			TLSHandshakeTimeout: 10 * time.Second,
-		},
-	}
+	w := &WeatherClient{
+		// TODO: make the size of the rate limiters configurable
+		rateLimiter:  make(chan bool, 60),
+		requestsSent: new(int64),
+		apiKey:       apiKey,
+		Client: http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				Dial:                dialer.Dial,
+				TLSHandshakeTimeout: 10 * time.Second,
+			},
+		}}
+	return w
 }
 
-func checkMillion() bool {
-	if time.Now().Month() != lastResetTime.Month() {
-		requestsSent = new(int64)
-		lastResetTime = time.Now()
+func (client *WeatherClient) checkMillion() bool {
+	if time.Now().Month() != client.lastResetTime.Month() {
+		client.requestsSent = new(int64)
+		client.lastResetTime = time.Now()
 	}
-	return atomic.AddInt64(requestsSent, 1) > 1000000
+	return atomic.AddInt64(client.requestsSent, 1) > 1000000
 }
 
-func (w *Weather) fetch(zip int) (err error) {
-	if checkMillion() {
-		return errors.New("monthly limit reached")
+func (client *WeatherClient) fetch(zip int) (w Weather, err error) {
+	if client.checkMillion() {
+		err = ErrMonthlyLimitReached
+		return
 	}
+	// check the rate limiter
+	// if we can push a new timer in then there's still space this minute
 	select {
-	case rateLimiter <- time.NewTimer(time.Minute):
+	case client.rateLimiter <- true:
 	default:
-		return errors.New("rate limiting to 60 calls per minute reached")
+		err = ErrRateLimitReached
+		return
 	}
+	// after a minute, pull off the items on the rateLimiter
+	time.AfterFunc(time.Minute, func() {
+		<-client.rateLimiter
+	})
+
 	// set the stuff we know about
 	w.CreatedAt = time.Now()
 	w.Expiry = w.CreatedAt.Add(time.Hour)
 	w.ZipCode = zip
 
 	// create the request to the api from the zip provided and the API Key
-	req, err := http.NewRequest("GET", fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%d&appid=%s", zip, APIKey), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%d&appid=%s", zip, client.apiKey), nil)
 	if err != nil {
 		return
 	}
