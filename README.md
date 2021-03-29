@@ -26,7 +26,7 @@ func main() {
     ...
 }
 ```
-That's it: create a client (for each api key if you have multiple) and request the zip. The client will return an error if you're outside of your rate limit.
+That's it: create a client (for each api key if you have multiple) and request the zip. The client will return `weather.ErrRateLimitReached` or `weather.ErrMonthlyLimitReached` if you're outside of your rate limit.
 
 ### Running the example
 Run the following command: `EXAMPLE_API_KEY=YOUR_API_KEY go run cmd/example/main.go --zip ZIP` replacing `ZIP` with the zip code you're interested in and `YOUR_API_KEY` with your api key.
