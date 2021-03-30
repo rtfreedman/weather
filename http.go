@@ -79,7 +79,7 @@ func (client *WeatherClient) fetch(zip int) (w Weather, err error) {
 		return
 	}
 	// after a minute, pull off the items on the rateLimiter
-	time.AfterFunc(time.Minute, func() {
+	defer time.AfterFunc(time.Minute, func() {
 		<-client.rateLimiter
 	})
 
